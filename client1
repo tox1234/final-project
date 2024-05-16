@@ -1,0 +1,140 @@
+import pygame
+import threading
+import socket
+
+pygame.init()
+
+HOST = '127.0.0.1'
+PORT = 45329
+connection_established = False
+WIDTH, HEIGHT = 300, 300
+LINE_WIDTH = 15
+BOARD_ROWS, BOARD_COLS = 3, 3
+SQUARE_SIZE = WIDTH // BOARD_ROWS
+CIRCLE_RADIUS = SQUARE_SIZE // 3
+CIRCLE_WIDTH = 15
+CROSS_WIDTH = 25
+SPACE = SQUARE_SIZE // 4
+RED = (255, 0, 0)
+BG_COLOR = (28, 170, 156)
+LINE_COLOR = (23, 145, 135)
+CIRCLE_COLOR = (239, 231, 200)
+CROSS_COLOR = (66, 66, 66)
+
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Tic Tac Toe")
+screen.fill(BG_COLOR)
+player = "X"
+font = pygame.font.SysFont("turok.ttf", 30, bold=True, italic=True)
+
+
+def create_thread(target):
+    thread = threading.Thread(target=target)
+    thread.daemon = True
+    thread.start()
+
+
+turn = False
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect((HOST, PORT))
+
+
+def receive_data():
+    global turn
+    while True:
+        data = sock.recv(1024).decode()
+        data = data.split('!')
+        if len(data) == 1:
+            turn = bool(data[0])
+        else:
+            clicked_row = int(data[0])
+            clicked_col = int(data[1])
+            turn = bool(data[2])
+            if is_square_available(clicked_row, clicked_col) and turn:
+                mark_square(clicked_row, clicked_col, 'O')
+            draw_figures()
+
+
+create_thread(receive_data)
+
+board = [['' for _ in range(BOARD_ROWS)] for _ in range(BOARD_COLS)]
+
+
+def draw_lines():
+    pygame.draw.line(screen, LINE_COLOR, (0, SQUARE_SIZE), (WIDTH, SQUARE_SIZE), LINE_WIDTH)
+    pygame.draw.line(screen, LINE_COLOR, (0, 2 * SQUARE_SIZE), (WIDTH, 2 * SQUARE_SIZE), LINE_WIDTH)
+    pygame.draw.line(screen, LINE_COLOR, (SQUARE_SIZE, 0), (SQUARE_SIZE, HEIGHT), LINE_WIDTH)
+    pygame.draw.line(screen, LINE_COLOR, (2 * SQUARE_SIZE, 0), (2 * SQUARE_SIZE, HEIGHT), LINE_WIDTH)
+
+
+def draw_figures():
+    for row in range(BOARD_ROWS):
+        for col in range(BOARD_COLS):
+            if board[row][col] == 'X':
+                pygame.draw.line(screen, CROSS_COLOR,
+                                 (col * SQUARE_SIZE + SPACE, row * SQUARE_SIZE + SQUARE_SIZE - SPACE),
+                                 (col * SQUARE_SIZE + SQUARE_SIZE - SPACE, row * SQUARE_SIZE + SPACE), CROSS_WIDTH)
+                pygame.draw.line(screen, CROSS_COLOR, (col * SQUARE_SIZE + SPACE, row * SQUARE_SIZE + SPACE),
+                                 (col * SQUARE_SIZE + SQUARE_SIZE - SPACE, row * SQUARE_SIZE + SQUARE_SIZE - SPACE),
+                                 CROSS_WIDTH)
+            elif board[row][col] == 'O':
+                pygame.draw.circle(screen, CIRCLE_COLOR,
+                                   (col * SQUARE_SIZE + SQUARE_SIZE // 2, row * SQUARE_SIZE + SQUARE_SIZE // 2),
+                                   CIRCLE_RADIUS, CIRCLE_WIDTH)
+
+
+def mark_square(row, col, player):
+    board[row][col] = player
+
+
+def is_square_available(row, col):
+    return board[row][col] == ''
+
+
+def check_winner():
+    for i in range(BOARD_ROWS):
+        if board[i][0] == board[i][1] == board[i][2] != '':
+            return board[i][0]
+        if board[0][i] == board[1][i] == board[2][i] != '':
+            return board[0][i]
+    if board[0][0] == board[1][1] == board[2][2] != '':
+        return board[0][0]
+    if board[0][2] == board[1][1] == board[2][0] != '':
+        return board[0][2]
+    return None
+
+
+def main():
+    global turn
+    global player
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouseX = event.pos[0]
+                mouseY = event.pos[1]
+
+                clicked_row = mouseY // SQUARE_SIZE
+                clicked_col = mouseX // SQUARE_SIZE
+
+                if is_square_available(clicked_row, clicked_col) and turn:
+                    mark_square(clicked_row, clicked_col, player)
+                    sock.send((str(clicked_row) + '!' + str(clicked_col) + '!' + str(turn)).encode())
+                    turn = False
+                    if check_winner():
+                        print(player + " wins!")
+                        sock.send(player.encode())
+                        label = font.render(player + " wins!", 1, (0, 0, 0))
+                        screen.blit(label, (100, 100))
+                        # running = False
+
+                    draw_figures()
+
+        draw_lines()
+        pygame.display.update()
+
+
+if __name__ == "__main__":
+    main()
