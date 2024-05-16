@@ -1,0 +1,59 @@
+import threading
+import socket
+
+HOST = '127.0.0.1'
+PORT = 45329
+count = 0
+
+
+def handle_client(client_socket, address):
+    global count
+    while True:
+        try:
+            data = client_socket.recv(1024).decode()
+            if not data:
+                print(f"Client {address} disconnected")
+                break
+            print(f"Received message from {address}: {data}")
+            broadcast(data, client_socket)
+        except Exception as e:
+            print(f"Error: {e}")
+            break
+
+    client_socket.close()
+
+
+def broadcast(message, sender_socket):
+    for client in clients:
+        if client != sender_socket:
+            try:
+                client.send(message.encode())
+            except:
+                client.close()
+                clients.remove(client)
+
+
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind((HOST, PORT))
+server.listen(2)
+
+print(f"Server listening on {HOST}:{PORT}")
+
+clients = []
+
+
+def main():
+    while True:
+        client_socket, address = server.accept()
+        print(f"Client connected from {address}")
+        clients.append(client_socket)
+        client_handler = threading.Thread(target=handle_client, args=(client_socket, address))
+        client_handler.start()
+        if len(clients) == 2:
+            clients[0].send("True".encode())
+
+
+if __name__ == "__main__":
+    main()
+
+
