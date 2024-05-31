@@ -274,7 +274,6 @@ def main():
                         sock.send(("4!-9994!-9995!False3!yes1!" + get_opposite(player)).encode())
                         while play == "no":
                             turn = False
-                            pass
                         if play == "yes":
                             if check_winner() != player:
                                 turn = True
