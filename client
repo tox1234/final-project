@@ -238,7 +238,6 @@ def main():
     global play
     global player
     x = False
-    didyouwin = False
     running = True
     while running:
         if check_winner():
