@@ -1,3 +1,8 @@
+"""
+Author: Ido Shema
+Date: 10/05/24
+a tic tac toe game using threads and pygame
+"""
 import threading
 import socket
 
@@ -7,30 +12,100 @@ count = 0
 
 
 def handle_client(client_socket, address):
+    """
+        handles the client
+        :param address: the address of the client
+        :param client_socket: the socket of the client
+        :return: None
+    """
     global count
     while True:
         try:
-            data = client_socket.recv(1024).decode()
-            if not data:
+            special_character = ''
+            row_len = ''
+            col_len = ''
+            turn_len = ''
+            play_len = ''
+            player_len = ''
+            while special_character != '!':
+                special_character = client_socket.recv(1).decode()
+                row_len += special_character
+            row_len = row_len[:-1]
+
+            row = int(client_socket.recv(int(row_len)).decode())
+
+            special_character = ''
+
+            while special_character != '!':
+                special_character = client_socket.recv(1).decode()
+                col_len += special_character
+            col_len = col_len[:-1]
+
+            col = int(client_socket.recv(int(col_len)).decode())
+            special_character = ''
+
+            while special_character != '!':
+                special_character = client_socket.recv(1).decode()
+                turn_len += special_character
+            turn_len = turn_len[:-1]
+
+            turn = client_socket.recv(int(turn_len)).decode()
+            special_character = ''
+
+            while special_character != '!':
+                special_character = client_socket.recv(1).decode()
+                play_len += special_character
+            play_len = play_len[:-1]
+
+            play = client_socket.recv(int(play_len)).decode()
+            special_character = ''
+
+            while special_character != '!':
+                special_character = client_socket.recv(1).decode()
+                player_len += special_character
+            player_len = player_len[:-1]
+
+            player = client_socket.recv(int(player_len)).decode()
+
+            data = str(len(str(row))) + '!' + str(row) + str(len(str(col))) + '!' + str(col) + str(len(turn)) + '!' + str(turn) + str(len(play)) + "!" + play + '1!' + player
+            if not client_socket:
                 print(f"Client {address} disconnected")
                 break
             print(f"Received message from {address}: {data}")
+            temp = data.split('!')
+            if temp[-1] == "yes":
+                count += 1
             broadcast(data, client_socket)
         except Exception as e:
             print(f"Error: {e}")
             break
-
+    clients.remove(client_socket)
     client_socket.close()
+    clients[0].close()
+    clients.remove(clients[0])
 
 
 def broadcast(message, sender_socket):
+    """
+        sends the message to the other client
+        :param sender_socket: the sender socket
+        :param message: the message to deliver
+        :return: None
+    """
+    global count
     for client in clients:
-        if client != sender_socket:
-            try:
-                client.send(message.encode())
-            except:
-                client.close()
-                clients.remove(client)
+        if count == 2:
+            client.send(message.encode())
+            sender_socket.send(message.encode())
+            count = 0
+
+        else:
+            if client != sender_socket:
+                try:
+                    client.send(message.encode())
+                except socket.error:
+                    client.close()
+                    clients.remove(client)
 
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -50,10 +125,8 @@ def main():
         client_handler = threading.Thread(target=handle_client, args=(client_socket, address))
         client_handler.start()
         if len(clients) == 2:
-            clients[0].send("True".encode())
+            clients[0].send('4!-9994!-9994!True2!no1!X'.encode())
 
 
 if __name__ == "__main__":
     main()
-
-
