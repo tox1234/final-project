@@ -45,6 +45,7 @@ def create_thread(target):
 turn = False
 play = "no"
 received = False
+running = True
 player = ""
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect((HOST, PORT))
@@ -70,6 +71,7 @@ def receive_data():
     global turn
     global play
     global player
+    global running
     while True:
         special_character = ''
         row_len = ''
@@ -123,6 +125,7 @@ def receive_data():
 
         except socket.error:
             print("Error")
+            running = False
             break
 
 
@@ -237,8 +240,8 @@ def main():
     global turn
     global play
     global player
+    global running
     x = False
-    running = True
     while running:
         if check_winner():
             pygame.display.update()
