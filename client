@@ -1,0 +1,309 @@
+"""
+Author: Ido Shema
+Date: 10/05/24
+a tic tac toe game using threads and pygame
+"""
+import pygame
+import threading
+import socket
+
+pygame.init()
+
+HOST = '127.0.0.1'
+PORT = 45329
+connection_established = False
+WIDTH, HEIGHT = 300, 300
+LINE_WIDTH = 15
+BOARD_ROWS, BOARD_COLS = 3, 3
+SQUARE_SIZE = WIDTH // BOARD_ROWS
+CIRCLE_RADIUS = SQUARE_SIZE // 3
+CIRCLE_WIDTH = 15
+CROSS_WIDTH = 25
+SPACE = SQUARE_SIZE // 4
+RED = (255, 0, 0)
+BG_COLOR = (28, 170, 156)
+LINE_COLOR = (23, 145, 135)
+CIRCLE_COLOR = (239, 231, 200)
+CROSS_COLOR = (66, 66, 66)
+
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Tic Tac Toe")
+screen.fill(BG_COLOR)
+
+
+def create_thread(target):
+    """
+        creates a thread
+        :param target: the target for the thread
+        :return: None
+    """
+    thread = threading.Thread(target=target)
+    thread.daemon = True
+    thread.start()
+
+
+turn = False
+play = "no"
+received = False
+player = ""
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect((HOST, PORT))
+
+
+def get_opposite(player_):
+    """
+        gets the opposite of the player
+        :param player_: the player
+        :return: Opposite of player
+    """
+    if player_ == "X":
+        return "O"
+    else:
+        return "X"
+
+
+def receive_data():
+    """
+        recives the data by the protocol
+        :return: None
+    """
+    global turn
+    global play
+    global player
+    while True:
+        special_character = ''
+        row_len = ''
+        col_len = ''
+        turn_len = ''
+        play_len = ''
+        player_len = ''
+        try:
+            while special_character != '!':
+                special_character = sock.recv(1).decode()
+                row_len += special_character
+            row_len = row_len[:-1]
+            row = int(sock.recv(int(row_len)).decode())
+
+            special_character = ''
+
+            while special_character != '!':
+                special_character = sock.recv(1).decode()
+                col_len += special_character
+            col_len = col_len[:-1]
+
+            col = int(sock.recv(int(col_len)).decode())
+            special_character = ''
+
+            while special_character != '!':
+                special_character = sock.recv(1).decode()
+                turn_len += special_character
+            turn_len = turn_len[:-1]
+
+            turn = bool(sock.recv(int(turn_len)).decode())
+            special_character = ''
+
+            while special_character != '!':
+                special_character = sock.recv(1).decode()
+                play_len += special_character
+            play_len = play_len[:-1]
+
+            play = sock.recv(int(play_len)).decode()
+            special_character = ''
+
+            while special_character != '!':
+                special_character = sock.recv(1).decode()
+                player_len += special_character
+            player_len = player_len[:-1]
+
+            player = sock.recv(int(player_len)).decode()
+
+            if is_square_available(row, col) and turn:
+                mark_square(row, col, get_opposite(player))
+            draw_figures()
+
+        except socket.error:
+            print("Error")
+            break
+
+
+create_thread(receive_data)
+
+board = [['' for _ in range(BOARD_ROWS)] for _ in range(BOARD_COLS)]
+
+
+def draw_lines():
+    """
+        draws the lines of the board
+        :return: None
+    """
+    pygame.draw.line(screen, LINE_COLOR, (0, SQUARE_SIZE), (WIDTH, SQUARE_SIZE), LINE_WIDTH)
+    pygame.draw.line(screen, LINE_COLOR, (0, 2 * SQUARE_SIZE), (WIDTH, 2 * SQUARE_SIZE), LINE_WIDTH)
+    pygame.draw.line(screen, LINE_COLOR, (SQUARE_SIZE, 0), (SQUARE_SIZE, HEIGHT), LINE_WIDTH)
+    pygame.draw.line(screen, LINE_COLOR, (2 * SQUARE_SIZE, 0), (2 * SQUARE_SIZE, HEIGHT), LINE_WIDTH)
+
+
+def draw_figures():
+    """
+        draws the figures
+        :return: None
+    """
+    for row in range(BOARD_ROWS):
+        for col in range(BOARD_COLS):
+            if board[row][col] == 'X':
+                pygame.draw.line(screen, CROSS_COLOR,
+                                 (col * SQUARE_SIZE + SPACE, row * SQUARE_SIZE + SQUARE_SIZE - SPACE),
+                                 (col * SQUARE_SIZE + SQUARE_SIZE - SPACE, row * SQUARE_SIZE + SPACE), CROSS_WIDTH)
+                pygame.draw.line(screen, CROSS_COLOR, (col * SQUARE_SIZE + SPACE, row * SQUARE_SIZE + SPACE),
+                                 (col * SQUARE_SIZE + SQUARE_SIZE - SPACE, row * SQUARE_SIZE + SQUARE_SIZE - SPACE),
+                                 CROSS_WIDTH)
+            elif board[row][col] == 'O':
+                pygame.draw.circle(screen, CIRCLE_COLOR,
+                                   (col * SQUARE_SIZE + SQUARE_SIZE // 2, row * SQUARE_SIZE + SQUARE_SIZE // 2),
+                                   CIRCLE_RADIUS, CIRCLE_WIDTH)
+
+
+def mark_square(row, col, player_):
+    """
+        marks the square in the row and col
+        :param player_: the player to mark
+        :param col: the col to mark
+        :param row: the row to mark
+        :return: None
+    """
+    board[row][col] = player_
+
+
+def is_square_available(row, col):
+    """
+        checks if the square is available
+        :param col: the col to check
+        :param row: the row to check
+        :return: return True if available and false if not.
+    """
+    if row == -999 and col == -999:
+        return False
+    return board[row][col] == ''
+
+
+def clear_screen():
+    """
+        clears the screen
+        :return: None
+    """
+    screen.fill(BG_COLOR)
+    draw_lines()
+    for row in range(BOARD_ROWS):
+        for col in range(BOARD_COLS):
+            board[row][col] = ""
+
+
+def win_text(text):
+    """
+        sets up the win/lose/draw text
+        :param text: who won
+        :return: the new win/lose/draw text
+    """
+    if text == "X" or text == "O":
+        return text + " wins!"
+    else:
+        return "it's a draw!"
+
+
+def check_winner():
+    """
+        checks who is the winner
+        :return: the winner/draw
+    """
+    check = True
+    for i in range(BOARD_ROWS):
+        for j in range(BOARD_COLS):
+            if board[i][j] == '':
+                check = False
+        if board[i][0] == board[i][1] == board[i][2] != '':
+            return board[i][0]
+        if board[0][i] == board[1][i] == board[2][i] != '':
+            return board[0][i]
+    if board[0][0] == board[1][1] == board[2][2] != '':
+        return board[0][0]
+    if board[0][2] == board[1][1] == board[2][0] != '':
+        return board[0][2]
+    if check:
+        return "draw"
+
+    return None
+
+
+def main():
+    global turn
+    global play
+    global player
+    x = False
+    didyouwin = False
+    running = True
+    while running:
+        if check_winner():
+            pygame.display.update()
+            x = True
+            font = pygame.font.SysFont("turok.ttf", 75, bold=True, italic=True)
+            font1 = pygame.font.SysFont("turok.ttf", 60, bold=True, italic=True)
+            font2 = pygame.font.SysFont("turok.ttf", 60, bold=True, italic=True)
+            congrats_label = font.render(win_text(check_winner()), True, (0, 0, 0))
+            play_label = font1.render("PLAY AGAIN?!", True, (0, 0, 255))
+            yes_label = font2.render("YES", True, (0, 255, 0))
+            yes_rect = yes_label.get_rect(topleft=(20, 200))
+            no_label = font2.render("NO", True, (255, 0, 0))
+            no_rect = no_label.get_rect(topleft=(200, 200))
+
+            screen.fill(BG_COLOR)
+            draw_lines()
+            if check_winner() == "draw":
+                screen.blit(congrats_label, (10, 40))
+            else:
+                screen.blit(congrats_label, (40, 40))
+
+            screen.blit(play_label, (0, 120))
+            screen.blit(yes_label, (20, 200))
+            screen.blit(no_label, (200, 200))
+            turn = False
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if yes_rect.collidepoint(event.pos):
+                        sock.send(("4!-9994!-9995!False3!yes1!" + get_opposite(player)).encode())
+                        while play == "no":
+                            turn = False
+                            pass
+                        if play == "yes":
+                            if check_winner() != player:
+                                turn = True
+                            x = False
+                            clear_screen()
+                            play = "no"
+                    if no_rect.collidepoint(event.pos):
+                        running = False
+        else:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouseX = event.pos[0]
+                    mouseY = event.pos[1]
+
+                    clicked_row = mouseY // SQUARE_SIZE
+                    clicked_col = mouseX // SQUARE_SIZE
+                    if is_square_available(clicked_row, clicked_col) and turn:
+                        mark_square(clicked_row, clicked_col, player)
+                        sock.send((str(len(str(clicked_row))) + '!' + str(clicked_row) + str(len(str(clicked_col))) + '!' + str(clicked_col) + str(len(str(turn))) + '!' + str(turn) + '2' + '!' + 'no' + '1' + '!' + get_opposite(player)).encode())
+                        turn = False
+                        if not x:
+                            draw_figures()
+
+            if not x:
+                draw_lines()
+            pygame.display.update()
+
+
+if __name__ == "__main__":
+    main()
